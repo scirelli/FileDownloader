@@ -6,6 +6,8 @@
 //
 // Requires cookieUtils to be included.
 //*****************************************
+//TODO:Cookie value should be the file name. in this case the hash of the url.
+//Figure a better way then setTimeout.
 
 if( !scUtils ) var scUtils = {};
 
@@ -20,7 +22,10 @@ if( !scUtils ) var scUtils = {};
         this.oForm     = null;
         this.oIFrame   = null;
         this.nInterval = 1000;
-        this.sCookieName = 'fileDownload';
+        this.sCookieName   = 'fileDownload';
+        this.nIntervalID   = 0;
+        this.nFailSafeTime = 3600000;//1hr
+        this.nTotalTime    = 0;
         this.init();
     };
 
@@ -30,6 +35,14 @@ if( !scUtils ) var scUtils = {};
     
     scUtils.FileDownLoader.prototype.setCookieName = function( sName ){
         this.sCookieName = sName;
+    };
+
+    scUtils.FileDownLoader.prototype.setFailSafeTime = function( nMaxTime ){
+        this.nFailSafeTime = nMaxTime;
+    };
+    
+    scUtils.FileDownLoader.prototype.resetTotalTime = function(){
+        this.nTotalTime = 0;
     };
 
     //@private
@@ -85,17 +98,25 @@ if( !scUtils ) var scUtils = {};
 
     //@private
     scUtils.FileDownLoader.prototype.cleanUp = function(){
+        window.clearTimeout(this.nIntervalID); 
         document.body.removeChild( this.oIFrame );
         window.cookieUtils.deleteCookie( this.sCookieName );
+        this.resetTotalTime();
     };
 
     //@private
     scUtils.FileDownLoader.prototype.checkCookie = function(){
         var me = this;
-        setTimeout( function(){
+        this.nIntervalID = setTimeout( function(){
             var sCookieValue = window.cookieUtils.getCookie(me.sCookieName);
+            me.nTotalTime += me.nInterval;
             if( sCookieValue == "1" || sCookieValue == 1 ){
                 me.fncSucess();
+                me.cleanUp();
+                return;
+            }
+            if( me.nTotalTime >= me.nFailSafeTime ){
+                me.fncError( me.nTotalTime + ' ms have elapsed.' );
                 me.cleanUp();
                 return;
             }
